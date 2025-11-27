@@ -1,0 +1,136 @@
+import { Page } from '@playwright/test';
+import { getLocator } from '../../../src/wcb-automation/utils/locator-utils';
+import { click, typeText } from '../../../src/wcb-automation/utils/action-utils';
+import { expectVisible, expectToHaveValue } from '../../../src/wcb-automation/utils/assert-utils';
+
+export class PolicyDocumentPage {
+  constructor(private page: Page) {}
+
+  // ---------- Locators via locator-utils.ts ----------
+
+  // Global toolbar / policy search
+  private policyMenu = getLocator('id', 'globalPolicyMenu');            // Policy menu (where you clicked Policy)
+  private globalSearchTextbox = getLocator('label', 'Global Search');   // Global Search textbox
+  private globalSearchCheckbox = getLocator('label', 'checkbox');       // Policy checkbox after search
+  private finishButton = getLocator('buttonName', 'Finish');            // Finish button to open policy
+
+  // Add document
+  private addDocumentMenu = getLocator('menuitem', 'Add Document');     // Add Document menu item
+  private documentCodeTextbox = getLocator('label', 'Document');        // REG030 textbox/field
+  private reg030Row = getLocator('text', 'REG030');                     // Row for REG030
+  private selectDocumentButton = getLocator('buttonName', 'Select');    // if you have Select/OK
+  private documentInformationHeader = getLocator('text', 'Document REG030 Independent Worker Letter');
+
+  // Tabs
+  private recipientsTab = getLocator('tab', 'Recipients');
+  private dataElementsTab = getLocator('tab', 'Data Elements');
+  private turnaroundTab = getLocator('tab', 'Turnaround');
+
+  // Fields inside tabs
+  private recipientsGrid = getLocator('id', 'recipientsGrid');          // Recipients grid
+  private dataElementsGrid = getLocator('id', 'dataElementsGrid');      // Data Elements grid
+
+  private expectedReturnDaysTextbox = getLocator('label', 'Expected Return Days');
+
+  // Toolbar buttons on Document Information window
+  private saveButton = getLocator('buttonName', 'Save');
+  private closeButton = getLocator('buttonName', 'Close');
+
+  // ---------- Business-step methods ----------
+
+  /**
+   * Step 18: Open the policy from Global Search.
+   */
+  async openPolicyFromGlobalSearch(policyNumber: string) {
+    await click(this.page, this.policyMenu);
+    await click(this.page, this.globalSearchTextbox);
+    await typeText(this.page, this.globalSearchTextbox, policyNumber);
+
+    // tick the checkbox for the policy and click Finish
+    await click(this.page, this.globalSearchCheckbox);
+    await click(this.page, this.finishButton);
+  }
+
+  /**
+   * Step 19: Select Add Document → REG030 and open Document Information.
+   */
+  async addDocumentReg030() {
+    await click(this.page, this.addDocumentMenu);
+
+    // enter/choose REG030 document
+    await click(this.page, this.documentCodeTextbox);
+    await typeText(this.page, this.documentCodeTextbox, 'REG030');
+
+    await click(this.page, this.reg030Row);
+    await click(this.page, this.finishButton); // or selectDocumentButton, depending on your UI
+
+    // confirm Document Information screen is open
+    await expectVisible(this.page, this.documentInformationHeader);
+  }
+
+  /**
+   * Step 20 (first part):
+   * Confirm that all Recipients and Data Elements are correct.
+   */
+  async verifyRecipientsAndDataElements() {
+    // Recipients tab
+    await click(this.page, this.recipientsTab);
+    await expectVisible(this.page, this.recipientsGrid);
+
+    // Data Elements tab
+    await click(this.page, this.dataElementsTab);
+    await expectVisible(this.page, this.dataElementsGrid);
+  }
+
+  /**
+   * Step 20 (second part):
+   * Navigate to Turnaround tab and confirm Expected Return Days.
+   */
+  async verifyTurnaroundExpectedReturnDays(expectedDays: string) {
+    await click(this.page, this.turnaroundTab);
+    await expectVisible(this.page, this.expectedReturnDaysTextbox);
+
+    await expectToHaveValue(this.page, this.expectedReturnDaysTextbox, expectedDays);
+  }
+
+  /**
+   * Step 21:
+   * Save and Close the Document Information window.
+   */
+  async saveAndCloseDocument() {
+    await click(this.page, this.saveButton);
+    await click(this.page, this.closeButton);
+  }
+}
+
+
+
+
+
+import { test } from '@playwright/test';
+import { WcbLoginPage } from '../pages/preferred-pom/wcb-login-page';
+import { PolicyDocumentPage } from '../pages/preferred-pom/policy-document-page';
+
+test.describe('REG030 Document – Expected Return Days', () => {
+  test('Step 18–21: Verify Expected Return Days = 300 and save', async ({ page }) => {
+    const loginPage = new WcbLoginPage(page);
+    const policyDocPage = new PolicyDocumentPage(page);
+
+    // ----- Login (steps 1–17 in your manual, already automated in your login POM) -----
+    await loginPage.gotoLoginPage();
+    await loginPage.loginWithValidCredentials();   // use your existing method
+
+    // ----- Step 18: Open the policy -----
+    await policyDocPage.openPolicyFromGlobalSearch('E0000877'); // use the same policy number you used in codegen
+
+    // ----- Step 19: Add Document REG030 -----
+    await policyDocPage.addDocumentReg030();
+
+    // ----- Step 20: Verify Recipients & Data Elements; Turnaround -----
+    await policyDocPage.verifyRecipientsAndDataElements();
+    await policyDocPage.verifyTurnaroundExpectedReturnDays('300');
+
+    // ----- Step 21: Save & Close -----
+    await policyDocPage.saveAndCloseDocument();
+  });
+});

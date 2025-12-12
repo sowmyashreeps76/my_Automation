@@ -1,175 +1,23 @@
-// tests/pages/preferred-pom/wcb-document-info-page.ts
-import { expect } from '@playwright/test';
-import { click, fill } from '../../../src/wcb-automation/utils/action-utils';
-import { expectElementToBeVisible } from '../../../src/wcb-automation/utils/assert-utils';
-import {
-  getLocator,
-  getLocatorByText,
-  getLocatorByRole,
-  getLocatorByLabel,
-} from '../../../src/wcb-automation/utils/locator-utils';
+export async function verifyCustomerAndDocumentEmailMatch() {
 
-/**
- *  LOCATORS (wrapped in functions, same style as wcb-login-page.ts)
- *  – adjust text / ids if they differ slightly in your app
- */
+  // --- CUSTOMER INFORMATION EMAIL ---
+  await VerifyIfAddressContainEmail();
+  await addressTextBox().waitFor({ state: 'visible', timeout: 5000 });
 
-// STEP 18 – Open policy from Global Search
-const globalToolbarBtn = () => getLocator('#FEKQc-btn');
-const policyMenuItem = () => getLocatorByText('Policy');
-const globalSearchBox = () =>
-  getLocatorByRole('textbox', { name: 'Global Search' });
-const policyCheckbox = () =>
-  getLocatorByRole('checkbox', { name: 'checkbox' });
-const finishBtn = () =>
-  getLocatorByRole('button', { name: 'Finish' });
+  const customerEmail = (await addressTextBox().inputValue()).trim();
+  console.log("Customer Email:", customerEmail);
 
-// STEP 19 – Add Document REG030
-const addDocumentMenuItem = () =>
-  getLocatorByRole('menuitem', { name: 'Add Document' });
-// if there is a textbox for document code, keep this; otherwise you can remove it
-const documentTextbox = () =>
-  getLocatorByRole('textbox', { name: /Document/ });
+  // --- DOCUMENT INFORMATION EMAIL ---
+  await emailAddressToBeVisible();
+  await emailAddress().waitFor({ state: 'visible', timeout: 5000 });
 
-const reg030Row = () => getLocatorByText('REG030');
+  const documentEmail = (await emailAddress().inputValue()).trim();
+  console.log("Document Email:", documentEmail);
 
-const documentInformationWindow = () =>
-  getLocatorByText('Document Information');
+  // --- ASSERTIONS ---
+  await expect(customerEmail, "Customer Info email is empty").not.toEqual("");
+  await expect(documentEmail, "Document Info email is empty").not.toEqual("");
 
-// STEP 20 – Recipients, Data Elements, Turnaround
-const recipientsTab = () => getLocatorByText('Recipients');
-const recipientsSection = () => getLocatorByLabel('Recipients');
-
-const dataElementsTab = () => getLocatorByText('Data Elements');
-const dataElementsSection = () =>
-  getLocatorByText('Data Elements'); // you can switch to getLocatorByLabel if needed
-
-const turnaroundTab = () => getLocatorByText('Turnaround');
-const expectedReturnDaysField = () =>
-  getLocatorByRole('textbox', { name: 'Expected Return Days' });
-
-// STEP 21 – Save & Close
-const saveButton = () =>
-  getLocatorByLabel('Document Information Document').getByRole('button', {
-    name: 'Save',
-  });
-const closeButton = () => getLocatorByText('Close');
-
-/**
- *  STEP FUNCTIONS – map directly to steps 18–21
- */
-
-// Step 18: Open the policy
-export async function openPolicyFromGlobalSearch(policyNumber: string) {
-  await click(globalToolbarBtn());
-  await click(policyMenuItem());
-
-  await click(globalSearchBox());
-  await fill(globalSearchBox(), policyNumber);
-
-  // normally Enter or search, but your codegen selected row then checkbox
-  await click(policyCheckbox());
-  await click(finishBtn());
+  await expect(customerEmail, "Customer email and Document email do NOT match")
+    .toEqual(documentEmail);
 }
-
-// Step 19: Add Document REG030 and open Document Information
-export async function addReg030Document() {
-  await click(addDocumentMenuItem());
-
-  // if Document textbox is required, keep these two lines
-  await click(documentTextbox());
-  await fill(documentTextbox(), 'REG030');
-
-  await click(reg030Row());
-  await click(finishBtn());
-
-  await expectElementToBeVisible(documentInformationWindow());
-}
-
-// Step 20: Confirm Recipients & Data Elements are correct
-export async function verifyRecipientsAndDataElements() {
-  await click(recipientsTab());
-  await expectElementToBeVisible(recipientsSection());
-
-  await click(dataElementsTab());
-  await expectElementToBeVisible(dataElementsSection());
-}
-
-// Step 20 (Turnaround): Confirm Expected Return Days is 300
-export async function verifyExpectedReturnDaysIs300() {
-  await click(turnaroundTab());
-  await expectElementToBeVisible(expectedReturnDaysField());
-
-  await expect(expectedReturnDaysField()).toHaveValue('300');
-}
-
-// Step 21: Save using toolbar in window, then Close
-export async function saveAndCloseDocumentInformation() {
-  await click(saveButton());
-  await click(closeButton());
-}
-
-
-
-
-
-// tests/specs/admin-proc-IW.spec.ts
-import { test } from '../../src/wcb-automation/setup/page-setup';
-import * as LoginPage from '../pages/preferred-pom/wcb-login-page';
-import * as DocumentPage from '../pages/preferred-pom/wcb-document-info-page';
-
-test.describe('WCB – REG030 Independent Worker Letter', () => {
-  test.only('Steps 18–21 – Verify Expected Return Days = 300 and save', async () => {
-    // Login (reuse your existing helpers)
-    await LoginPage.navigateToWCBLoginPage();
-    await LoginPage.loginSuccessfully();
-
-    // Step 18: Open the policy
-    await DocumentPage.openPolicyFromGlobalSearch('E0000877'); // use policy number from your steps/codegen
-
-    // Step 19: Add Document REG030
-    await DocumentPage.addReg030Document();
-
-    // Step 20: Confirm Recipients & Data Elements, and Expected Return Days
-    await DocumentPage.verifyRecipientsAndDataElements();
-    await DocumentPage.verifyExpectedReturnDaysIs300();
-
-    // Step 21: Save and Close
-    await DocumentPage.saveAndCloseDocumentInformation();
-  });
-});
-
-
-
-
-// Input box where Policy Number is typed
-const policyNumberInput = () => getLocator('#0TSPc-real');
-
-// Dropdown / Open icon
-const policyDropdownButton = () => getLocator('#0TSPc-btn');
-
-// Dropdown caret icon (alternate)
-const policyDropdownIcon = () => getLocator('#0TSPc-icon');
-
-// Dropdown popup container
-const policyTypeList = () => getLocator('#0TSPc-pp');
-
-// Specific option selection (like "Policy" or "Customer")
-const policyTypeOption = (type: string) => getLocatorByText(type);
-
-
-
-
-
-export async function selectPolicyType(type: string) {
-  await click(policyDropdownButton()); // or policyDropdownIcon()
-  await expectElementToBeVisible(policyTypeList());
-  await click(policyTypeOption(type));
-}
-
-
-
-
-await selectPolicyType('Policy');   // Select "Policy" from dropdown
-await fill(policyNumberInput(), 'E0000877');
-
